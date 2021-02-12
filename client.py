@@ -1,4 +1,4 @@
-import threading, os
+import pickle, threading, os, time
 from sockets import Client
 
 class Player:
@@ -15,19 +15,36 @@ class GameData:
 
 
 class Player():
+    alive = True
     def __init__(self) -> None:
         self.client = Client()
-        self.game_data = GameData(self.client.s, self.client.addr)
-        threading.Thread(target=self.send_data)
+        self.game_data = GameData()
+        self.thread_send = threading.Thread(target=self.send_data)
+        self.thread_send.start()
+        self.thread_get = threading.Thread(target=self.get_data)
+        self.thread_get.start()
+        
+
 
     def send_data(self):
-        while True:
-            self.client.send_data(self.game_data)
+        while self.alive:
+            print(self.alive)
+            self.client.send_data(pickle.dumps(self.game_data.keys))
+            # os.system('cls')
+            print(self.game_data.keys)
 
+    
     def get_data(self):
-        while True:
-            pass
-
+        while self.alive:
+            
+            try:
+                self.game_data = pickle.loads(self.client.s.recv(4096))
+                print(self.game_data.__dict__)
+                pass
+            except:
+                pass
+        
+    
 
 if __name__ == '__main__':
     player = Player()
