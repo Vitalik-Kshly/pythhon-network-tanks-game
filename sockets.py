@@ -7,7 +7,7 @@ class Sockets(ABC):
     Accept & handle clients
 
     '''
-    ADDR = ('localhost', 3000)
+    ADDR = ('192.168.0.116', 3000)
     s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     
     @abstractmethod
@@ -21,16 +21,15 @@ class Sockets(ABC):
     @abstractmethod
     def connect():
         pass
-class Player:
-    def __init__(self, conn, addr, client_thread, data) -> None:
-        self.addr = addr
-        self.conn = conn
+class PlayerObj:
+    def __init__(self, addr, data) -> None:
+        self.addr = None
         self.data = data
-        self.client_thread = client_thread
+        
 
 class GameData:
     def __init__(self) -> None:
-        self.pos_x = self.pos_y = None
+        self.pos_x = self.pos_y = 0
         self.angle = 0
         self.keys = {'W':0, "A":0, "S":0, "D":0}
 
@@ -42,6 +41,7 @@ class Server(Sockets):
         self.data = None
         self.s.bind(self.ADDR)
         self.s.listen(1)
+        self.speed = 0.09
         threading.Thread(target= self.connect).start()
         threading.Thread(target= self.send_data).start()
         
@@ -52,38 +52,64 @@ class Server(Sockets):
         while True:
             sock, addr = self.s.accept()
             client_thread = threading.Thread(target=self.get_data, args=(sock, addr)).start()
-            self.connections.update({addr : Player(sock, sock.getpeername(), client_thread, GameData())})
+            self.connections.update({sock : PlayerObj(sock.getpeername(), GameData())})
             print(f'{sock.getpeername()} new connection!\n{len(self.connections)} user(s) already connected!')
 
     def get_data(self, sock: socket, addr):
         while True:
             
             try:
-                self.connections[addr].data.keys = pickle.loads(sock.recv(4096))
-                pass    
+                data = pickle.loads(sock.recv(4096))
+                if data == 'CLOSE':
+                    print(f'{sock.getpeername()} disconnected!')
+                    del self.connections[sock]
+                    del sock
+                    break
+                else:
+                    self.connections[sock].data.keys = data
+                    # os.system('cls')
+                    # print(f'{sock.getpeername()}: {data}')
+                    self.calculate(data, sock)
+                    pass    
             except:
                 pass
-
+    
+    def calculate(self, data, sock):
+        if data['W'] and self.connections[sock].data.pos_y > 0:
+            self.connections[sock].data.pos_y -= self.speed
+        if data['A'] and self.connections[sock].data.pos_x > 0:
+            self.connections[sock].data.pos_x -= self.speed
+        if data['S'] and self.connections[sock].data.pos_y < 750:
+            self.connections[sock].data.pos_y += self.speed
+        if data['D'] and self.connections[sock].data.pos_x < 750:
+            self.connections[sock].data.pos_x += self.speed
+        return
 
     def send_data(self):
         while True:
+            
             try:
                 if len(self.connections):
+                    data = []
                     for key in self.connections:
-                        for i in self.connections:
-                            self.connections[i].conn.send(pickle.dumps(self.connections[key].data))
+                        data.append(self.connections[key])
+                    for key in self.connections:
+                        key.send(pickle.dumps(data))    
             except Exception as e:
+                # print(e)
                 pass
 
 
 class Client(Sockets):
-    def __init__(self) -> None:
+    def __init__(self, addr) -> None:
+        self.ADDR = (addr, 3000)
         self.connect()
         threading.Thread(target=self.get_data).start()
-        self.addr = self.s.getsockname()
     
     def connect(self):
         try:
+            
+
             self.s.connect(self.ADDR)
             print(f'{self.s.getpeername()} connected!')
         except:

@@ -1,7 +1,7 @@
 import pickle, threading, os, time
 from sockets import Client
 
-class Player:
+class PlayerObj:
         def __init__(self, conn, addr) -> None:
             self.addr = None
             self.conn = conn
@@ -16,30 +16,31 @@ class GameData:
 
 class Player():
     alive = True
-    def __init__(self) -> None:
-        self.client = Client()
+    def __init__(self, addr) -> None:
+        self.client = Client(addr)
         self.game_data = GameData()
-        self.thread_send = threading.Thread(target=self.send_data)
-        self.thread_send.start()
-        self.thread_get = threading.Thread(target=self.get_data)
-        self.thread_get.start()
+        self.player_pos = []
+        self.thread_send = threading.Thread(target=self.send_data).start()
+        self.thread_get = threading.Thread(target=self.get_data).start()
         
 
 
     def send_data(self):
         while self.alive:
-            print(self.alive)
+            # print(self.alive)
             self.client.send_data(pickle.dumps(self.game_data.keys))
             # os.system('cls')
-            print(self.game_data.keys)
+            # print(self.game_data.keys)
 
-    
+    def close_connection(self):
+        self.client.send_data(pickle.dumps("CLOSE"))
+
     def get_data(self):
         while self.alive:
+            # game_data = self.client.s.recv(4096) #pickle.loads()
             
             try:
-                self.game_data = pickle.loads(self.client.s.recv(4096))
-                print(self.game_data.__dict__)
+                self.player_pos = pickle.loads(self.client.s.recv(4096))
                 pass
             except:
                 pass
